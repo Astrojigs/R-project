@@ -28,55 +28,53 @@ We will go through each of the files and see what columns they consist and what 
 ```{r}
 tdf_stages = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/tdf_stages.csv')
 
+head(x = tdf_stages,2)
 ```
-There are many columns with different data types. First we will check if there are any null values. After viewing the data, we see that there are no null values, and also the data points seem to be consistent and not vaguely different. Hence cleaning this file is not necessary.
 
+There are many columns with different data types. First we will check if there are any null values.
 ```{r}
 # making a function to detect null values:
 check_null <- function(df){
   as.data.frame(lapply(df, function(x) {length(which(is.na(x)))}))
 }
+
+# checking null values for `stage_data`
+check_null(tdf_stages)
 ```
 
+There are no null values, and also the data points seem to be consistent and not vaguely different. Hence cleaning this file is not necessary.
 
 ### `stage_data`
 ```{r}
 stage_data1 = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/stage_data.csv')
+
+head(stage_data1,2)
 ```
 
 #### Checking the null values in the `stage_data`
-
 ```{r}
 check_null(stage_data1)
 ```
 
 There are many columns with many null values. We will go through each of the columns and see how we deal with null values.
 
-#### `stage_data$time` and `stage_data$elapsed`
+#### `stage_data$time`
 Initial data type = `character` string
 
-Histogram plot (`stage_data$time`) and (`stage_data$elapsed`)
+Histogram plot (`stage_data$time`)
 ```{r}
  stage_data <- stage_data1
 # Extracting only the numerical part inside the string.
 stage_data$time = (str_sub(stage_data$time,start = 1,end=-2))
 
-stage_data$elapsed = (str_sub(stage_data$elapsed,start = 1,end=-2))
-
 
 # Histogram of the numeric time column
 hist_num_time <- as.numeric(stage_data$time)
-
 ```
-```{r,fig.width=8,fig.height=3}
-par(mfrow=c(1,2))
+```{r,fig.width=4,fig.height=3}
 hist(hist_num_time, main = "Histogram of time")
-# Histogram of the numeric elapsed column
-hist(as.numeric(stage_data$elapsed),main = "Histogram of elapsed time",xlab = "Elapsed Time")
 ```
 $time \sim Unif(a=0,b=60)$ 
-
-$\text{elapsed time} \sim Unif(a=0,b=60)$ 
 
 The peak at 0 seems to be an error.
 We replace the null values with a uniform distribution from 
@@ -90,15 +88,7 @@ for (i in 1:nrow(stage_data)){
 
 stage_data$time <- as.numeric(stage_data$time)
 
-for (i in 1:nrow(stage_data)){
-  if (is.na(stage_data$elapsed[i])){
-    stage_data$elapsed[i] = runif(1,min = 0, max = 60)
-  }
-}
-
-stage_data$elapsed <- as.numeric(stage_data$elapsed)
 ```
-
 #### `stage_data$age`
 ```{r,fig.width=7,fig.height=2,warning=F,message=F}
 # checking `age` column
@@ -135,16 +125,27 @@ for (i in 1:nrow(stage_data)){
 `NA` or `""` $\implies$ *"No Team"*
 
 Replaced the *empty characters* and *null-values* with *"No Team"*.
-```{r}
-# for loop for replacing "" and NA with "No Team"
+
+#### `stage_data$elapsed`
+
+Convert from `char` data => `int` or `double` data type.
+
+
+```{r,fig.width=4,fig.height=3}
+stage_data$elapsed = (str_sub(stage_data$elapsed,start = 1,end=-2))
+
+# Histogram of the numeric elapsed column
+hist(as.numeric(stage_data$elapsed),main = "Histogram of elapsed time",xlab = "Elapsed Time")
+
 for (i in 1:nrow(stage_data)){
-  if (stage_data$team[i] == "" |is.na(stage_data$team[i])){
-    stage_data$team[i] = "No Team"
+  if (is.na(stage_data$elapsed[i])){
+    stage_data$elapsed[i] = runif(1,min = 0, max = 60)
   }
 }
+
+stage_data$elapsed <- as.numeric(stage_data$elapsed)
+
 ```
-
-
 #### `stage_data$points`
 
 Removing the column due to number of null values.
@@ -177,8 +178,6 @@ for (i in 1:nrow(stage_data)){
     
   }
 }
-
-check_null(stage_data)
 ```
 
 ```{r}
