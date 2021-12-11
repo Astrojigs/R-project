@@ -1,0 +1,355 @@
+---
+title: "Project-TDF-html"
+author: "Jigar Patel"
+date: "09/11/2021"
+output: 
+  html_document:
+  code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyr)
+library(tidyverse)
+```
+
+# Introduction
+
+```{r,echo=FALSE}
+# Get the Data
+
+tdf_stages = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/tdf_stages.csv')
+
+
+stage_data1 = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/stage_data.csv')
+
+tdf_winners = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/tdf_winners.csv')
+```
+
+The DataFrames are loaded in the environment. We can start to clean the data:
+The cleaning process will include the following:
+
+- Removing null values (or substituting them with meaningful values)
+- Creating or removing new columns
+
+## Cleaning the data:
+
+### Looking at the data:
+```{r}
+stage_data <- stage_data1
+head(x = tdf_stages,2)
+head(x = stage_data,2)
+head(x = tdf_winners,2)
+```
+
+#### Cleaning `tdf_stages`:
+Detecting the numbers of missing values in each row:
+```{r}
+# making a function to detect null values:
+check_null <- function(df){
+  as.data.frame(lapply(df, function(x) {length(which(is.na(x)))}))
+}
+
+# checking null values for `stage_data`
+check_null(tdf_stages)
+```
+
+No Null values in this dataset.
+
+#### Cleaning `stage_data`:
+Detecting the number of rows with missing values:
+```{r}
+check_null(stage_data)
+```
+Let's look at the column `time`. It has 5617 null values. Converting the column into integer type column.
+```{r}
+# Extracting only the numerical part inside the string.
+stage_data$time = (str_sub(stage_data$time,start = 1,end=-2))
+
+# Is the data numeric?
+is.numeric(stage_data$time)
+# The data doesn't seem to be numeric
+
+# Histogram of the numeric time column
+hist(as.numeric(stage_data$time))
+ 
+# The mean
+m <- mean(na.omit(as.numeric(stage_data$time)))
+m
+
+```
+This mean can be substituted in place of Na values.
+
+As the 'time' column is important, we cannot simply omit it.
+
+We can see that the numbers vary from 0 to 60 seconds. We can take the average value of the racers and substitute that in place of null values.
+
+```{r}
+# Mean of the time column
+stage_data[is.na(stage_data$time),]$time <- m
+stage_data$time <- as.numeric(stage_data$time)
+mean(stage_data$time)
+check_null(stage_data)
+```
+**We have successfully removed null values from the `time` column**.
+
+We can move to `age` column.
+
+```{r}
+# checking `age` column
+mean_age <- mean(na.omit(stage_data$age))
+sd_age <- sd(na.omit(stage_data$age))
+
+pl_age_distributions <- 
+  ggplot(stage_data) + 
+  geom_histogram(aes(x = age),alpha=0.7,position='identity') +
+  
+  geom_histogram(aes(x = rnorm(nrow(stage_data),
+                               mean = mean_age,
+                               sd = sd_age)),color='red',
+                 alpha=0.3) +
+  ggtitle('Data along with Normal distribution overlayed (red)')
+pl_age_distributions
+```
+
+The graph closely resembles roughly as a normal distribution, we can substitute the Na values with normally distributed ones
+
+```{r}
+for (i in 1:nrow(stage_data)){
+  if (is.na(stage_data$age[i])){
+    stage_data$age[i] = rnorm(1,mean = mean_age,sd = sd_age)
+    
+  }
+}
+
+
+# # dummy_example
+# crs <- mtcars
+# for (i in 1:nrow(crs)){
+#   if (crs$mpg[i] > 20){
+#     crs$cyl[i] = rnorm(1,mean = mean_age,sd = sd_age)
+#   }
+# }
+# 
+# crs
+```
+
+```{r}
+check_null(stage_data)
+```
+
+We will focus on `team` column.
+
+https://github.com/rfordatascience/tidytuesday/blob/master/data/2020/2020-04-07/readme.md#:~:text=Team%20(NA%20if%20not%20on%20team)
+
+The document tells us that if the player is not in the team the value is given to be `NA` (null).
+We can replace this value with `"No Team"`
+```{r}
+sum(is.na(stage_data$team))
+
+# for loop for replacing "" and NA with "No Team"
+for (i in 1:nrow(stage_data)){
+  if (stage_data$team[i] == "" |is.na(stage_data$team[i])){
+    stage_data$team[i] = "No Team"
+  }
+}
+
+sum(is.na(stage_data$team))
+```
+
+We have successfully remove the null values from the `team` column in `stage_data` dataset and switched it to "*No team*"
+
+We can move on to the next column which contains null values.
+
+```{r}
+# Extracting only the numerical part inside the string.
+stage_data$elapsed = (str_sub(stage_data$elapsed,start = 1,end=-2))
+
+# Is the data numeric?
+is.numeric(stage_data$elapsed)
+# The data doesn't seem to be numeric
+
+# Histogram of the numeric time column
+hist(as.numeric(stage_data$elapsed))
+ 
+# The mean
+m <- mean(na.omit(as.numeric(stage_data$elapsed)))
+m
+```
+This mean value can be substituted in place of Na values.
+
+As the 'elapsed' column is important, we cannot simply omit it.
+
+We can see that the numbers vary from 0 to 60 seconds. We can take the average value of the racers and substitute that in place of null values.
+
+```{r}
+# Mean of the time column
+stage_data[is.na(stage_data$elapsed),]$elapsed <- m
+stage_data$elapsed <- as.numeric(stage_data$elapsed)
+mean(stage_data$elapsed)
+check_null(stage_data)
+
+```
+
+We are done with `elapsed` column. Moving on to other columns.
+
+```{r}
+check_null(stage_data)
+```
+
+Removing the `points` column, since there are too many missing values.
+
+```{r}
+# removing the `points` column
+stage_data <- stage_data %>% select(-c("points"))
+```
+
+```{r}
+check_null(stage_data)
+```
+
+**Bib_number visualization**:
+
+
+```{r}
+mean_bib <- mean(na.omit(stage_data$bib_number))
+
+pl_bib_number_distributions <-
+  ggplot(stage_data) + 
+  geom_histogram(aes(x = bib_number)) +
+  geom_histogram(aes(rexp(nrow(stage_data),
+                          1/mean_bib)),
+                 color='red',
+                 alpha=0.4) +
+  ggtitle("bib_number with Exp distribution (red)")
+pl_bib_number_distributions 
+```
+
+We can replace the null values with the exponentially distributed values.
+
+```{r}
+
+for (i in 1:nrow(stage_data)){
+  if (is.na(stage_data$bib_number[i])){
+    stage_data$bib_number[i] = rexp(n = 1,rate = 1/mean_bib)
+    
+  }
+}
+```
+
+Checking the number of columns with still hold null values
+```{r}
+check_null(stage_data)
+```
+
+**We have successfully cleaned the stage_data.csv. We will now move forward to `tdf_winners.csv`
+
+#### Cleaning `tdf_winners`:
+
+```{r}
+check_null(tdf_winners)
+```
+
+Plotting the the `height` column and seeing how it is distributed.
+
+```{r}
+par(mfrow=c(1,2))
+
+ height_with_distributions <- ggplot(tdf_winners) + geom_histogram(data = tdf_winners,aes(x=tdf_winners$height)) + 
+  geom_histogram(data = tdf_winners,
+                 aes(x=rnorm(nrow(tdf_winners),
+                             mean = mean(na.omit(tdf_winners$height)),
+                             sd = sd(na.omit(tdf_winners$height))),
+                     color= 'red', alpha=0.4)) + 
+  ggtitle("Height with normal distribution (red)")
+
+weight_with_distributions <-ggplot(tdf_winners) + geom_histogram(data = tdf_winners,aes(x=tdf_winners$weight)) + 
+  geom_histogram(data = tdf_winners,
+                 aes(x=rnorm(nrow(tdf_winners),
+                             mean = mean(na.omit(tdf_winners$weight)),
+                             sd = sd(na.omit(tdf_winners$weight))),
+                     color= 'red', alpha=0.4)) + 
+  ggtitle('Weight with normal distribution (red)')
+
+height_with_distributions
+weight_with_distributions
+```
+
+The data looks like it can be approximated with a normal distribution.
+
+We can substitute the null values in `height` and `weight` with normal distribution. 
+
+```{r}
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$height[i])){
+    tdf_winners$height[i] = rnorm(1,
+                             mean = mean(na.omit(tdf_winners$height)),
+                             sd = sd(na.omit(tdf_winners$height)))
+    
+  }
+}
+
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$weight[i])){
+    tdf_winners$weight[i] = rnorm(1,
+                             mean = mean(na.omit(tdf_winners$weight)),
+                             sd = sd(na.omit(tdf_winners$weight)))
+    
+  }
+}
+```
+
+```{r}
+check_null(tdf_winners)
+```
+
+We have removed null values from `height` and `weight` columns.
+
+Dropping not so useful columns
+```{r}
+tdf_winners <- subset(tdf_winners, select=-c(nickname,full_name,died))
+
+check_null(tdf_winners)
+```
+
+**visualization of `time_overall` and `time_margin`**
+
+```{r}
+hist(tdf_winners$time_overall)
+hist(tdf_winners$time_margin)
+```
+They both can follow an exponential distribution. 
+
+```{r}
+# We can substitute the null values with exponential distributed values
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$time_overall[i])){
+    tdf_winners$time_overall[i]=rexp(1,
+                                    1/mean(na.omit(tdf_winners$time_overall)))
+  }
+}
+
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$time_margin[i])){
+    tdf_winners$time_margin[i]=rexp(1,
+                                    1/mean(na.omit(tdf_winners$time_margin)))
+  }
+}
+
+check_null(tdf_winners)
+```
+**All the data has now been cleaned**
+
+## Saving the files:
+```{r}
+check_null(tdf_stages)
+check_null(stage_data)
+check_null(tdf_winners)
+
+
+write.csv(tdf_stages,'CLEANED_tdf_stages_from_R.csv')
+write.csv(stage_data,'CLEANED_stage_data_from_R.csv')
+write.csv(tdf_winners,'CLEANED_tdf_winners_from_R.csv')
+
+```
+

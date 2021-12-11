@@ -1,0 +1,280 @@
+---
+title: "R project - cleaning summary"
+author: "Jigar Patel"
+date: "08/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyr)
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+```
+
+## Data Cleaning
+
+This part consists of cleaning 3 CSVs.
+
+- `tdf_Stages`
+- `stage_date`
+- `tdf_winners`
+
+We will go through each of the files and see what columns they consist and what type of data it has.
+
+
+### `tdf_stages`
+```{r}
+tdf_stages = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/tdf_stages.csv')
+
+```
+There are many columns with different data types. First we will check if there are any null values. After viewing the data, we see that there are no null values, and also the data points seem to be consistent and not vaguely different. Hence cleaning this file is not necessary.
+
+```{r}
+# making a function to detect null values:
+check_null <- function(df){
+  as.data.frame(lapply(df, function(x) {length(which(is.na(x)))}))
+}
+```
+
+
+### `stage_data`
+```{r}
+stage_data1 = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/stage_data.csv')
+```
+
+#### Checking the null values in the `stage_data`
+
+```{r}
+check_null(stage_data1)
+```
+
+There are many columns with many null values. We will go through each of the columns and see how we deal with null values.
+
+#### `stage_data$time` and `stage_data$elapsed`
+Initial data type = `character` string
+
+Histogram plot (`stage_data$time`) and (`stage_data$elapsed`)
+```{r}
+ stage_data <- stage_data1
+# Extracting only the numerical part inside the string.
+stage_data$time = (str_sub(stage_data$time,start = 1,end=-2))
+
+stage_data$elapsed = (str_sub(stage_data$elapsed,start = 1,end=-2))
+
+
+# Histogram of the numeric time column
+hist_num_time <- as.numeric(stage_data$time)
+
+```
+```{r,fig.width=8,fig.height=3}
+par(mfrow=c(1,2))
+hist(hist_num_time, main = "Histogram of time")
+# Histogram of the numeric elapsed column
+hist(as.numeric(stage_data$elapsed),main = "Histogram of elapsed time",xlab = "Elapsed Time")
+```
+$time \sim Unif(a=0,b=60)$ 
+
+$\text{elapsed time} \sim Unif(a=0,b=60)$ 
+
+The peak at 0 seems to be an error.
+We replace the null values with a uniform distribution from 
+0 to 60,
+```{r}
+for (i in 1:nrow(stage_data)){
+  if (is.na(stage_data$time[i])){
+    stage_data$time[i] = runif(1,min = 0, max = 60)
+  }
+}
+
+stage_data$time <- as.numeric(stage_data$time)
+
+for (i in 1:nrow(stage_data)){
+  if (is.na(stage_data$elapsed[i])){
+    stage_data$elapsed[i] = runif(1,min = 0, max = 60)
+  }
+}
+
+stage_data$elapsed <- as.numeric(stage_data$elapsed)
+```
+
+#### `stage_data$age`
+```{r,fig.width=7,fig.height=2,warning=F,message=F}
+# checking `age` column
+mean_age <- mean(na.omit(stage_data$age))
+sd_age <- sd(na.omit(stage_data$age))
+
+pl_age_distributions <- 
+  ggplot(stage_data) + 
+  geom_histogram(aes(x = age),alpha=0.7,position='identity') +
+  
+  geom_histogram(aes(x = rnorm(nrow(stage_data),
+                               mean = mean_age,
+                               sd = sd_age)),color='red',
+                 alpha=0.3) +
+  ggtitle('Age Data along with Normal distribution overlayed (red)')
+pl_age_distributions
+```
+$N(\mu_{age}, \sigma_{age}) \sim \text{Age Data}$ 
+
+Null-values replaced by above distribution.
+
+```{r}
+for (i in 1:nrow(stage_data)){
+  if (is.na(stage_data$age[i])){
+    stage_data$age[i] = rnorm(1,mean = mean_age,sd = sd_age)
+    
+  }
+}
+
+```
+
+#### `stage_data$team`
+
+`NA` or `""` $\implies$ *"No Team"*
+
+Replaced the *empty characters* and *null-values* with *"No Team"*.
+```{r}
+# for loop for replacing "" and NA with "No Team"
+for (i in 1:nrow(stage_data)){
+  if (stage_data$team[i] == "" |is.na(stage_data$team[i])){
+    stage_data$team[i] = "No Team"
+  }
+}
+```
+
+
+#### `stage_data$points`
+
+Removing the column due to number of null values.
+```{r}
+stage_data <- stage_data %>% select(-c("points"))
+```
+
+#### `stage_data$bib_number`
+
+```{r,fig.width=5,fig.height=2,warning=F,message=F}
+mean_bib <- mean(na.omit(stage_data$bib_number))
+
+pl_bib_number_distributions <-
+  ggplot(stage_data) + 
+  geom_histogram(aes(x = bib_number)) +
+  geom_histogram(aes(rexp(nrow(stage_data),
+                          1/mean_bib)),
+                 color='red',
+                 alpha=0.4) +
+  ggtitle("bib_number with Exp distribution (red)")
+pl_bib_number_distributions 
+```
+bib_number $\sim Exp(rate=\dfrac{1}{\mu_{\text{bib_number}}})$
+
+Replacing *null-values* with the values following the above distribution.
+```{r}
+for (i in 1:nrow(stage_data)){
+  if (is.na(stage_data$bib_number[i])){
+    stage_data$bib_number[i] = rexp(n = 1,rate = 1/mean_bib)
+    
+  }
+}
+
+check_null(stage_data)
+```
+
+```{r}
+tdf_winners = read.csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2020/2020-04-07/tdf_winners.csv')
+```
+
+### `tdf_winners`
+
+Columns consisting of null values:
+```{r}
+check_null(tdf_winners)
+```
+
+#### `tdf_winners$height` & `tdf_winners$weight`
+
+```{r,fig.width=10, fig.height=3,warning=FALSE,message=FALSE}
+par(mfrow=c(1,2))
+
+ height_with_distributions <- ggplot(tdf_winners) + geom_histogram(data = tdf_winners,aes(x=tdf_winners$height)) + 
+  geom_histogram(data = tdf_winners,
+                 aes(x=rnorm(nrow(tdf_winners),
+                             mean = mean(na.omit(tdf_winners$height)),
+                             sd = sd(na.omit(tdf_winners$height))),
+                     color= 'red', alpha=0.4)) + 
+  ggtitle("Height with normal distribution (red)")
+
+weight_with_distributions <-ggplot(tdf_winners) + geom_histogram(data = tdf_winners,aes(x=tdf_winners$weight)) + 
+  geom_histogram(data = tdf_winners,
+                 aes(x=rnorm(nrow(tdf_winners),
+                             mean = mean(na.omit(tdf_winners$weight)),
+                             sd = sd(na.omit(tdf_winners$weight))),
+                     color= 'red', alpha=0.4)) + 
+  ggtitle('Weight with normal distribution (red)')
+
+height_with_distributions +
+weight_with_distributions
+
+```
+Height, Weight $\sim N(\mu_{Height,Weight},\sigma_{Height,Weight})$
+
+Replaced null values with the normally distributed random variables with height's and weight's $\mu$s and $\sigma$s.
+
+```{r}
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$height[i])){
+    tdf_winners$height[i] = rnorm(1,
+                             mean = mean(na.omit(tdf_winners$height)),
+                             sd = sd(na.omit(tdf_winners$height)))
+    
+  }
+}
+
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$weight[i])){
+    tdf_winners$weight[i] = rnorm(1,
+                             mean = mean(na.omit(tdf_winners$weight)),
+                             sd = sd(na.omit(tdf_winners$weight)))
+    
+  }
+}
+```
+
+#### Removing `nickname`,`full_name`,`died` columns as they are not useful for analysis.
+
+```{r}
+tdf_winners <- subset(tdf_winners, select=-c(nickname,full_name,died))
+```
+
+#### `tdf_winners$time_overall` & `tdf_winners$time_margin`
+```{r,fig.width=7,fig.height=3}
+par(mfrow=c(1,2))
+hist(tdf_winners$time_overall,main='Histogram of time_overall',xlab = 'time_overall')
+hist(tdf_winners$time_margin,main='Histogram of time_margin',xlab='time_margin')
+```
+Substituting *null-values* with exponentially distributed random variables since they both approximately follow exponential distributions. 
+
+```{r}
+# We can substitute the null values with exponential distributed values
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$time_overall[i])){
+    tdf_winners$time_overall[i]=rexp(1,
+                                    1/mean(na.omit(tdf_winners$time_overall)))
+  }
+}
+
+for (i in 1:nrow(tdf_winners)){
+  if (is.na(tdf_winners$time_margin[i])){
+    tdf_winners$time_margin[i]=rexp(1,
+                                    1/mean(na.omit(tdf_winners$time_margin)))
+  }
+}
+
+```
+
+All three data-sets now have no-null values. 
+
+Adding new columns will be included in the *Analysis section* for calculating and analyzing new information.
+
+---
